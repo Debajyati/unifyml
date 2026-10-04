@@ -1,0 +1,14 @@
+[package]
+name = "unifyml"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# This tells Cargo where to find your benchmarks
+[[bench]]
+name = "dot_product"
+harness = false
