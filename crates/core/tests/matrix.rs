@@ -98,8 +98,10 @@ mod matrix_tests {
     #[test]
     fn transpose_square_matrix() {
         let mut m = Matrix::<f32>::zeros(2, 2);
-        m[(0, 0)] = 1.0; m[(0, 1)] = 2.0;
-        m[(1, 0)] = 3.0; m[(1, 1)] = 4.0;
+        m[(0, 0)] = 1.0;
+        m[(0, 1)] = 2.0;
+        m[(1, 0)] = 3.0;
+        m[(1, 1)] = 4.0;
 
         let t = m.transpose();
         assert_eq!(t.rows(), 2);
@@ -153,8 +155,10 @@ mod matrix_tests {
     fn add_two_matrices() {
         let mut a = Matrix::<f32>::zeros(2, 2);
         let mut b = Matrix::<f32>::zeros(2, 2);
-        a[(0, 0)] = 1.0; a[(1, 1)] = 2.0;
-        b[(0, 0)] = 10.0; b[(0, 1)] = 20.0;
+        a[(0, 0)] = 1.0;
+        a[(1, 1)] = 2.0;
+        b[(0, 0)] = 10.0;
+        b[(0, 1)] = 20.0;
 
         let c = a.add(&b).unwrap();
         assert_eq!(c[(0, 0)], 11.0);
@@ -175,10 +179,12 @@ mod matrix_tests {
     #[test]
     fn addition_is_commutative() {
         let mut a = Matrix::<f32>::zeros(2, 2);
-        a[(0, 0)] = 1.0; a[(1, 1)] = 2.0;
+        a[(0, 0)] = 1.0;
+        a[(1, 1)] = 2.0;
 
         let mut b = Matrix::<f32>::zeros(2, 2);
-        b[(0, 1)] = 3.0; b[(1, 0)] = 4.0;
+        b[(0, 1)] = 3.0;
+        b[(1, 0)] = 4.0;
 
         assert_eq!(a.add(&b).unwrap(), b.add(&a).unwrap());
     }
@@ -201,7 +207,8 @@ mod matrix_tests {
     #[test]
     fn subtraction_reverses_addition() {
         let mut a = Matrix::<f32>::zeros(2, 2);
-        a[(0, 0)] = 5.0; a[(1, 1)] = 10.0;
+        a[(0, 0)] = 5.0;
+        a[(1, 1)] = 10.0;
 
         let mut b = Matrix::<f32>::ones(2, 2);
         b[(0, 1)] = 2.0;
@@ -223,12 +230,16 @@ mod matrix_tests {
     #[test]
     fn matmul_2x2_basic() {
         let mut a = Matrix::<f32>::zeros(2, 2);
-        a[(0, 0)] = 1.0; a[(0, 1)] = 2.0;
-        a[(1, 0)] = 3.0; a[(1, 1)] = 4.0;
+        a[(0, 0)] = 1.0;
+        a[(0, 1)] = 2.0;
+        a[(1, 0)] = 3.0;
+        a[(1, 1)] = 4.0;
 
         let mut b = Matrix::<f32>::zeros(2, 2);
-        b[(0, 0)] = 5.0; b[(0, 1)] = 6.0;
-        b[(1, 0)] = 7.0; b[(1, 1)] = 8.0;
+        b[(0, 0)] = 5.0;
+        b[(0, 1)] = 6.0;
+        b[(1, 0)] = 7.0;
+        b[(1, 1)] = 8.0;
 
         let c = a.matmul(&b).unwrap();
         assert_eq!(c[(0, 0)], 19.0);
@@ -261,10 +272,14 @@ mod matrix_tests {
     #[test]
     fn matmul_rectangular_3x2_times_2x4() {
         let mut a = Matrix::<f32>::zeros(3, 2);
-        for i in 0..6 { a[(i / 2, i % 2)] = (i + 1) as f32; }
+        for i in 0..6 {
+            a[(i / 2, i % 2)] = (i + 1) as f32;
+        }
 
         let mut b = Matrix::<f32>::zeros(2, 4);
-        for i in 0..8 { b[(i / 4, i % 4)] = (i + 1) as f32; }
+        for i in 0..8 {
+            b[(i / 4, i % 4)] = (i + 1) as f32;
+        }
 
         let c = a.matmul(&b).unwrap();
         assert_eq!(c.rows(), 3);
@@ -281,11 +296,14 @@ mod matrix_tests {
     #[test]
     fn matmul_identity_on_both_sides() {
         let mut a = Matrix::<f32>::zeros(2, 2);
-        a[(0, 0)] = 1.0; a[(0, 1)] = 2.0;
-        a[(1, 0)] = 3.0; a[(1, 1)] = 4.0;
+        a[(0, 0)] = 1.0;
+        a[(0, 1)] = 2.0;
+        a[(1, 0)] = 3.0;
+        a[(1, 1)] = 4.0;
 
         let mut i = Matrix::<f32>::zeros(2, 2);
-        i[(0, 0)] = 1.0; i[(1, 1)] = 1.0;
+        i[(0, 0)] = 1.0;
+        i[(1, 1)] = 1.0;
 
         let left_identity = i.matmul(&a).unwrap();
         assert_eq!(left_identity, a);
@@ -298,13 +316,19 @@ mod matrix_tests {
     #[test]
     fn matmul_associativity() {
         let mut a = Matrix::<f32>::zeros(2, 3);
-        for i in 0..6 { a[(i / 3, i % 3)] = (i + 1) as f32; }
+        for i in 0..6 {
+            a[(i / 3, i % 3)] = (i + 1) as f32;
+        }
 
         let mut b = Matrix::<f32>::zeros(3, 2);
-        for i in 0..6 { b[(i / 2, i % 2)] = (i + 1) as f32; }
+        for i in 0..6 {
+            b[(i / 2, i % 2)] = (i + 1) as f32;
+        }
 
         let mut c = Matrix::<f32>::zeros(2, 4);
-        for i in 0..8 { c[(i / 4, i % 4)] = (i + 1) as f32; }
+        for i in 0..8 {
+            c[(i / 4, i % 4)] = (i + 1) as f32;
+        }
 
         // (A * B) * C
         let ab = a.matmul(&b).unwrap();
@@ -351,5 +375,111 @@ mod matrix_tests {
         assert_eq!(a, b);
         assert_ne!(a, c);
     }
-}
 
+    #[test]
+    fn test_matmul_vector_basic_2x3() {
+        // 2x3 matrix * 3-vector -> 2-vector
+        // A = [1 2 3]
+        //     [4 5 6]
+        let a = Matrix::from_vec(2, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+        let x = Vector::from_vec(vec![10.0, 20.0, 30.0]);
+
+        let y = a.matmul_vector(&x).unwrap();
+        assert_eq!(y, Vector::from_vec(vec![140.0, 320.0]));
+    }
+
+    #[test]
+    fn test_matmul_vector_1x1() {
+        // 1x1 scalar multiplication equivalence
+        let a = Matrix::from_vec(1, 1, vec![5.0]).unwrap();
+        let x = Vector::from_vec(vec![3.0]);
+
+        let y = a.matmul_vector(&x).unwrap();
+        assert_eq!(y, Vector::from_vec(vec![15.0]));
+    }
+
+    #[test]
+    fn test_matmul_vector_identity() {
+        // Property: I * x = x
+        let identity =
+            Matrix::from_vec(3, 3, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]).unwrap();
+        let x = Vector::from_vec(vec![3.0, -7.0, 12.0]);
+
+        let y = identity.matmul_vector(&x).unwrap();
+        assert_eq!(y, x);
+    }
+
+    #[test]
+    fn test_matmul_vector_zero_matrix() {
+        // Property: 0 * x = 0
+        let zero_mat = Matrix::<f32>::zeros(3, 4);
+        let x = Vector::from_vec(vec![2.0, -4.0, 8.0, 1.5]);
+
+        let y = zero_mat.matmul_vector(&x).unwrap();
+        assert_eq!(y, Vector::<f32>::zeros(3));
+    }
+
+    #[test]
+    fn test_matmul_vector_rectangular_tall_and_wide() {
+        // Tall matrix: 4x2 * 2-vector -> 4-vector
+        let tall = Matrix::from_vec(4, 2, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).unwrap();
+        let x_tall = Vector::from_vec(vec![0.5, 2.0]);
+
+        let y_tall = tall.matmul_vector(&x_tall).unwrap();
+        // 1*0.5 + 2*2 = 4.5
+        // 3*0.5 + 4*2 = 9.5
+        // 5*0.5 + 6*2 = 14.5
+        // 7*0.5 + 8*2 = 19.5
+        assert_eq!(y_tall, Vector::from_vec(vec![4.5, 9.5, 14.5, 19.5]));
+
+        // Wide matrix: 2x4 * 4-vector -> 2-vector
+        let wide = Matrix::from_vec(2, 4, vec![1.0, 0.0, -1.0, 2.0, 0.0, 3.0, 1.0, 4.0]).unwrap();
+        let x_wide = Vector::from_vec(vec![2.0, 1.0, 4.0, 3.0]);
+
+        let y_wide = wide.matmul_vector(&x_wide).unwrap();
+        // 1*2 + 0*1 + (-1)*4 + 2*3 = 4
+        // 0*2 + 3*1 + 1*4 + 4*3 = 19
+        assert_eq!(y_wide, Vector::from_vec(vec![4.0, 19.0]));
+    }
+
+    #[test]
+    fn test_matmul_vector_dimension_mismatch() {
+        let a = Matrix::from_vec(2, 3, vec![1.0; 6]).unwrap();
+        let x = Vector::from_vec(vec![1.0, 2.0]); // Expected 3 elements
+
+        let result = a.matmul_vector(&x);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            MatrixError::VectorDimensionMismatch {
+                matrix_cols: 3,
+                vector_len: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn test_matmul_vector_degenerate_empty() {
+        // Completely empty matrix (0x0) * empty vector -> empty vector
+        let empty_mat = Matrix::<f32>::new();
+        let empty_vec = Vector::<f32>::new();
+
+        let y_empty = empty_mat.matmul_vector(&empty_vec).unwrap();
+        assert!(y_empty.is_empty());
+
+        // Zero rows but non-zero cols: 0x3 * 3-vector -> 0-vector
+        let zero_rows = Matrix::<f32>::zeros(0, 3);
+        let x3 = Vector::from_vec(vec![1.0, 2.0, 3.0]);
+
+        let y_zero_rows = zero_rows.matmul_vector(&x3).unwrap();
+        assert!(y_zero_rows.is_empty());
+        assert_eq!(y_zero_rows.len(), 0);
+
+        // Non-zero rows but zero cols: 3x0 * 0-vector -> 3-vector of zeros
+        let zero_cols = Matrix::<f32>::zeros(3, 0);
+        let x0 = Vector::<f32>::new();
+
+        let y_zero_cols = zero_cols.matmul_vector(&x0).unwrap();
+        assert_eq!(y_zero_cols, Vector::<f32>::zeros(3));
+    }
+}
