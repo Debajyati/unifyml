@@ -318,22 +318,134 @@ mod tensor_algebra_tests {
         assert_eq!(a.mul(&zeros).unwrap(), zeros);
 
         // 3. Commutativity: A ⊙ B = B ⊙ A
-        assert_eq!(
-            a.mul(&b).unwrap(),
-            b.mul(&a).unwrap()
-        );
+        assert_eq!(a.mul(&b).unwrap(), b.mul(&a).unwrap());
 
         // 4. Expected numerical outcome test
         let expected = Tensor::from_vec(shape, vec![5.0, 12.0, 21.0, 32.0]).unwrap();
         assert_eq!(a.mul(&b).unwrap(), expected);
 
         // 5. Shape mismatch error test
-        let mismatched = Tensor::zeros(vec![2, 2, 1]);
+        let mismatched = Tensor::zeros(vec![2, 3]);
+
         assert_eq!(
             a.mul(&mismatched),
             Err(TensorError::ShapeMismatch {
                 left: vec![2, 2],
-                right: vec![2, 2, 1]
+                right: vec![2, 3]
+            })
+        );
+    }
+}
+
+#[cfg(test)]
+mod min_max_dim_tests {
+    use unifyml::Tensor;
+    use unifyml::TensorError;
+
+    #[test]
+    fn test_min_max_dim_rank_2() {
+        // Matrix 2x3:
+        // [[10.0,  2.0,  5.0],
+        //  [ 4.0, 20.0,  1.0]]
+        let data = vec![10.0, 2.0, 5.0, 4.0, 20.0, 1.0];
+        let tensor = Tensor::from_vec(vec![2, 3], data).unwrap();
+
+        // 1. Min along axis 0 (columns) -> Shape [3]
+        let min_axis_0 = tensor.min_dim(0).unwrap();
+        assert_eq!(min_axis_0.shape(), &[3]);
+        assert_eq!(min_axis_0.as_slice(), &[4.0, 2.0, 1.0]);
+
+        // 2. Max along axis 0 (columns) -> Shape [3]
+        let max_axis_0 = tensor.max_dim(0).unwrap();
+        assert_eq!(max_axis_0.shape(), &[3]);
+        assert_eq!(max_axis_0.as_slice(), &[10.0, 20.0, 5.0]);
+
+        // 3. Min along axis 1 (rows) -> Shape [2]
+        let min_axis_1 = tensor.min_dim(1).unwrap();
+        assert_eq!(min_axis_1.shape(), &[2]);
+        assert_eq!(min_axis_1.as_slice(), &[2.0, 1.0]);
+
+        // 4. Max along axis 1 (rows) -> Shape [2]
+        let max_axis_1 = tensor.max_dim(1).unwrap();
+        assert_eq!(max_axis_1.shape(), &[2]);
+        assert_eq!(max_axis_1.as_slice(), &[10.0, 20.0]);
+    }
+
+    #[test]
+    fn test_min_max_dim_rank_1_to_scalar() {
+        // Vector [4] -> Reduces to Rank-0 Scalar Tensor []
+        let tensor = Tensor::from_vec(vec![4], vec![7.0, -3.0, 12.0, 0.0]).unwrap();
+
+        let min_res = tensor.min_dim(0).unwrap();
+        assert_eq!(min_res.shape(), &[]);
+        assert_eq!(min_res.as_slice(), &[-3.0]);
+
+        let max_res = tensor.max_dim(0).unwrap();
+        assert_eq!(max_res.shape(), &[]);
+        assert_eq!(max_res.as_slice(), &[12.0]);
+    }
+
+    #[test]
+    fn test_min_max_dim_invalid_axis() {
+        let tensor: Tensor<f32> = Tensor::zeros(vec![2, 3]);
+
+        // Out-of-bounds axis (axis=2 for rank-2 tensor)
+        assert_eq!(
+            tensor.min_dim(2),
+            Err(TensorError::IndexOutOfBounds {
+                dims: 2,
+                index: vec![2],
+            })
+        );
+        assert_eq!(
+            tensor.max_dim(2),
+            Err(TensorError::IndexOutOfBounds {
+                dims: 2,
+                index: vec![2],
+            })
+        );
+    }
+
+    #[test]
+    fn test_sum_dim_rank_2() {
+        // Matrix 2x3:
+        // [[1.0, 2.0, 3.0],
+        //  [4.0, 5.0, 6.0]]
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let tensor = Tensor::from_vec(vec![2, 3], data).unwrap();
+
+        // Sum along axis 0 (columns) -> Shape [3]
+        // [1+4, 2+5, 3+6] = [5.0, 7.0, 9.0]
+        let sum_0 = tensor.sum_dim(0).unwrap();
+        assert_eq!(sum_0.shape(), &[3]);
+        assert_eq!(sum_0.as_slice(), &[5.0, 7.0, 9.0]);
+
+        // Sum along axis 1 (rows) -> Shape [2]
+        // [1+2+3, 4+5+6] = [6.0, 15.0]
+        let sum_1 = tensor.sum_dim(1).unwrap();
+        assert_eq!(sum_1.shape(), &[2]);
+        assert_eq!(sum_1.as_slice(), &[6.0, 15.0]);
+    }
+
+    #[test]
+    fn test_sum_dim_rank_1_to_scalar() {
+        // Vector [4] -> Reduces to Rank-0 Scalar Tensor []
+        let tensor = Tensor::from_vec(vec![4], vec![10.0, 20.0, 30.0, 40.0]).unwrap();
+
+        let sum_res = tensor.sum_dim(0).unwrap();
+        assert_eq!(sum_res.shape(), &[]);
+        assert_eq!(sum_res.as_slice(), &[100.0]);
+    }
+
+    #[test]
+    fn test_sum_dim_invalid_axis() {
+        let tensor: Tensor<f32> = Tensor::zeros(vec![2, 3]);
+
+        assert_eq!(
+            tensor.sum_dim(2),
+            Err(TensorError::IndexOutOfBounds {
+                dims: 2,
+                index: vec![2],
             })
         );
     }
