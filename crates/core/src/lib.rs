@@ -4,7 +4,7 @@ pub mod matrix;
 pub mod vector;
 pub mod scalar;
 
-pub use errors::{MatrixError, VectorError};
+pub use errors::{MatrixError, VectorError, TensorError};
 pub use matrix::Matrix;
 pub use scalar::{Real, Scalar};
 pub use vector::Vector;
