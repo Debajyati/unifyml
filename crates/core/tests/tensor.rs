@@ -1,7 +1,9 @@
+use unifyml::Tensor;
+use unifyml::TensorError;
+
 #[cfg(test)]
 mod tests {
-    use unifyml::Tensor;
-    use unifyml::TensorError;
+    use super::*;
     #[test]
     fn test_tensor_creation_and_indexing() {
         // 2 x 3 x 4 tensor = 24 elements
@@ -221,8 +223,7 @@ mod tests {
 
 #[cfg(test)]
 mod tensor_algebra_tests {
-    use unifyml::Tensor;
-    use unifyml::TensorError;
+    use super::*;
 
     #[test]
     fn test_scale_properties() {
@@ -335,12 +336,86 @@ mod tensor_algebra_tests {
             })
         );
     }
+
+    #[test]
+    fn test_tensor_matmul_2d() {
+        // A [2, 3] * B [3, 2] -> C [2, 2]
+        // A = [[1, 2, 3], [4, 5, 6]]
+        let a = Tensor::from_vec(vec![2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+        // B = [[7, 8], [9, 1], [2, 3]]
+        let b = Tensor::from_vec(vec![3, 2], vec![7.0, 8.0, 9.0, 1.0, 2.0, 3.0]).unwrap();
+
+        let c = a.matmul(&b).unwrap();
+        assert_eq!(c.shape(), &[2, 2]);
+
+        // C[0, 0] = 1*7 + 2*9 + 3*2 = 31
+        // C[0, 1] = 1*8 + 2*1 + 3*3 = 19
+        // C[1, 0] = 4*7 + 5*9 + 6*2 = 85
+        // C[1, 1] = 4*8 + 5*1 + 6*3 = 55
+        assert_eq!(c.as_slice(), &[31.0, 19.0, 85.0, 55.0]);
+    }
+
+    #[test]
+    fn test_tensor_matmul_transposed_views() {
+        // Verify matmul works on non-contiguous transposed tensor views
+        let a = Tensor::from_vec(vec![2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+        let a_t = a.transpose_2d().unwrap(); // Shape [3, 2]
+
+        let x = vec![10.0, 20.0];
+        let x_tensor = Tensor::from_vec(vec![2, 1], x).unwrap();
+
+        let res = a_t.matmul(&x_tensor).unwrap();
+        assert_eq!(res.shape(), &[3, 1]);
+        // 1*10 + 4*20 = 90
+        // 2*10 + 5*20 = 120
+        // 3*10 + 6*20 = 150
+        assert_eq!(res.as_slice(), &[90.0, 120.0, 150.0]);
+    }
+
+    #[test]
+    fn test_tensor_matmul_batched_3d() {
+        // Batch size = 2, Matmul [2, 2] * [2, 2] -> [2, 2, 2]
+        let a = Tensor::from_vec(
+            vec![2, 2, 2],
+            vec![
+                1.0, 2.0, 3.0, 4.0, // Batch 0
+                5.0, 6.0, 7.0, 8.0, // Batch 1
+            ],
+        )
+        .unwrap();
+
+        let identity_batch = Tensor::from_vec(
+            vec![2, 2, 2],
+            vec![
+                1.0, 0.0, 0.0, 1.0, // Identity Batch 0
+                1.0, 0.0, 0.0, 1.0, // Identity Batch 1
+            ],
+        )
+        .unwrap();
+
+        let res = a.matmul(&identity_batch).unwrap();
+        assert_eq!(res.shape(), &[2, 2, 2]);
+        assert_eq!(res, a); // A * I = A
+    }
+
+    #[test]
+    fn test_tensor_matmul_dimension_mismatch() {
+        let a = Tensor::from_vec(vec![2, 3], vec![1.0; 6]).unwrap();
+        let b = Tensor::from_vec(vec![4, 2], vec![1.0; 8]).unwrap();
+
+        assert_eq!(
+            a.matmul(&b),
+            Err(TensorError::MatmulDimensionMismatch {
+                left_shape: vec![2, 3],
+                right_shape: vec![4, 2],
+            })
+        );
+    }
 }
 
 #[cfg(test)]
 mod min_max_dim_tests {
-    use unifyml::Tensor;
-    use unifyml::TensorError;
+    use super::*;
 
     #[test]
     fn test_min_max_dim_rank_2() {
@@ -448,5 +523,286 @@ mod min_max_dim_tests {
                 index: vec![2],
             })
         );
+    }
+}
+
+#[cfg(test)]
+mod contiguity_and_permutation_tests {
+    use super::*;
+
+    #[test]
+    fn test_is_contiguous_and_reshape_contract() {
+        // Standard initialized tensor is contiguous
+        let mut t = Tensor::from_vec(vec![2, 3, 4], (0..24).map(|i| i as f32).collect()).unwrap();
+        assert!(t.is_contiguous());
+
+        // Reshape succeeds on contiguous tensor
+        assert!(t.reshape(vec![6, 4]).is_ok());
+        assert_eq!(t.shape(), &[6, 4]);
+
+        // Permute to non-contiguous shape [4, 2, 3] with strides [1, 12, 4]
+        let permuted = t.permute(&[1, 0]).unwrap(); // [6, 4] permuted to [4, 6]
+        assert!(!permuted.is_contiguous());
+
+        // Reshape fails on non-contiguous tensor
+        let mut permuted_clone = permuted.clone();
+        assert_eq!(
+            permuted_clone.reshape(vec![24]),
+            Err(TensorError::NonContiguousReshape)
+        );
+
+        // Identity permutation preserves contiguity
+        let identity_perm = t.permute(&[0, 1]).unwrap();
+        assert!(identity_perm.is_contiguous());
+
+        // Squeeze and unsqueeze preserve contiguity expectations
+        let sq = Tensor::from_vec(vec![1, 3, 1, 4], (0..12).map(|i| i as f32).collect())
+            .unwrap()
+            .squeeze();
+        assert!(sq.is_contiguous());
+
+        let unsq = t.unsqueeze(1).unwrap();
+        assert!(unsq.is_contiguous());
+    }
+
+    #[test]
+    fn test_permute_logical_matrix_indexing() {
+        // A = [[1, 2, 3],
+        //      [4, 5, 6]]
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let a = Tensor::from_vec(vec![2, 3], data).unwrap();
+
+        // Permute to [3, 2]
+        let a_t = a.permute(&[1, 0]).unwrap();
+        assert_eq!(a_t.shape(), &[3, 2]);
+        assert_eq!(a_t.strides(), &[1, 3]);
+
+        // Expected logical matrix layout:
+        // [[1, 4],
+        //  [2, 5],
+        //  [3, 6]]
+        assert_eq!(a_t.get(&[0, 0]), Some(&1.0));
+        assert_eq!(a_t.get(&[0, 1]), Some(&4.0));
+        assert_eq!(a_t.get(&[1, 0]), Some(&2.0));
+        assert_eq!(a_t.get(&[1, 1]), Some(&5.0));
+        assert_eq!(a_t.get(&[2, 0]), Some(&3.0));
+        assert_eq!(a_t.get(&[2, 1]), Some(&6.0));
+    }
+
+    #[test]
+    fn test_general_transpose() {
+        // Rank-3 tensor [2, 3, 4] -> transpose() -> Rank-3 tensor [4, 3, 2]
+        let data: Vec<f32> = (0..24).map(|i| i as f32).collect();
+        let x = Tensor::from_vec(vec![2, 3, 4], data).unwrap();
+
+        let x_t = x.transpose();
+        assert_eq!(x_t.shape(), &[4, 3, 2]);
+        assert_eq!(x_t.strides(), &[1, 4, 12]);
+
+        // x[1, 2, 3] (offset 23) -> x_t[3, 2, 1] (offset 23)
+        assert_eq!(x.get(&[1, 2, 3]), Some(&23.0));
+        assert_eq!(x_t.get(&[3, 2, 1]), Some(&23.0));
+    }
+
+    #[test]
+    fn test_permute_error_cases() {
+        let x = Tensor::<f32>::zeros(vec![2, 3, 4]);
+
+        // Wrong axis count
+        assert!(x.permute(&[1, 0]).is_err());
+        // Duplicate axes
+        assert!(x.permute(&[0, 1, 1]).is_err());
+        // Axis out of bounds
+        assert!(x.permute(&[0, 1, 3]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod non_contiguous_architecture_tests {
+    use super::*;
+
+    /// Helper to generate a matrix and its transposed (non-contiguous) view
+    fn get_matrix_and_transposed_view() -> (Tensor<f32>, Tensor<f32>) {
+        // [2, 3] contiguous
+        let a = Tensor::from_vec(vec![2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+
+        // [3, 2] non-contiguous (strides [1, 3])
+        // Logically:
+        // [1, 4]
+        // [2, 5]
+        // [3, 6]
+        let a_t = a.transpose_2d().unwrap();
+
+        (a, a_t)
+    }
+
+    #[test]
+    fn test_non_contiguous_elementwise() {
+        let (_, a_t) = get_matrix_and_transposed_view();
+
+        // Aᵀ + Aᵀ
+        let added = a_t.add(&a_t).unwrap();
+        assert_eq!(added.shape(), &[3, 2]);
+        assert_eq!(added.get(&[0, 0]), Some(&2.0)); // 1 + 1
+        assert_eq!(added.get(&[0, 1]), Some(&8.0)); // 4 + 4
+        assert_eq!(added.get(&[2, 1]), Some(&12.0)); // 6 + 6
+
+        // Aᵀ * Aᵀ
+        let multiplied = a_t.mul(&a_t).unwrap();
+        assert_eq!(multiplied.get(&[1, 1]), Some(&25.0)); // 5 * 5
+    }
+
+    #[test]
+    fn test_non_contiguous_reductions() {
+        let (_, a_t) = get_matrix_and_transposed_view();
+
+        // Sum along axis 1 (the rows of Aᵀ, which were the columns of A)
+        // Logically summing [1, 4], [2, 5], [3, 6]
+        let sum_dim_1 = a_t.sum_dim(1).unwrap();
+        assert_eq!(sum_dim_1.shape(), &[3]);
+        assert_eq!(sum_dim_1.get(&[0]), Some(&5.0));  // 1+4
+        assert_eq!(sum_dim_1.get(&[1]), Some(&7.0));  // 2+5
+        assert_eq!(sum_dim_1.get(&[2]), Some(&9.0));  // 3+6
+    }
+
+    #[test]
+    fn test_non_contiguous_matmul() {
+        // Aᵀ is [3, 2] non-contiguous. B is [2, 2] contiguous.
+        let (_, a_t) = get_matrix_and_transposed_view();
+        let b = Tensor::from_vec(vec![2, 2], vec![10.0, 20.0, 30.0, 40.0]).unwrap();
+
+        // [3, 2] × [2, 2] -> [3, 2]
+        let c = a_t.matmul(&b).unwrap();
+        assert_eq!(c.shape(), &[3, 2]);
+
+        // Row 0 of Aᵀ is [1, 4]
+        // Col 0 of B is [10, 30]
+        // 1*10 + 4*30 = 130
+        assert_eq!(c.get(&[0, 0]), Some(&130.0));
+    }
+
+    #[test]
+    fn test_dot_and_outer() {
+        let v1 = Tensor::from_vec(vec![3], vec![1.0, 2.0, 3.0]).unwrap();
+        let v2 = Tensor::from_vec(vec![3], vec![4.0, 5.0, 6.0]).unwrap();
+
+        let dot_res = v1.dot(&v2).unwrap();
+        assert_eq!(dot_res.shape(), &[]);
+        assert_eq!(dot_res.as_slice(), &[32.0]); // 4 + 10 + 18
+
+        let v3 = Tensor::from_vec(vec![2], vec![10.0, 20.0]).unwrap();
+        let outer_res = v1.outer(&v3).unwrap();
+        assert_eq!(outer_res.shape(), &[3, 2]);
+        // [[10, 20], [20, 40], [30, 60]]
+        assert_eq!(outer_res.as_slice(), &[10.0, 20.0, 20.0, 40.0, 30.0, 60.0]);
+    }
+}
+
+#[cfg(test)]
+mod additional_math_and_reductions_tests {
+    use super::*;
+
+    #[test]
+    fn test_elementwise_math_real() {
+        let a = Tensor::from_vec(vec![2], vec![-1.0, 4.0]).unwrap();
+
+        let neg = a.neg();
+        assert_eq!(neg.as_slice(), &[1.0, -4.0]);
+
+        let abs = a.abs();
+        assert_eq!(abs.as_slice(), &[1.0, 4.0]);
+
+        let sqrt = abs.sqrt();
+        assert_eq!(sqrt.as_slice(), &[1.0, 2.0]);
+
+        let pow = abs.pow(3.0);
+        assert_eq!(pow.as_slice(), &[1.0, 64.0]);
+
+        let ln = Tensor::from_vec(vec![1], vec![1.0_f32.exp()]).unwrap().ln();
+        // Almost equal due to f32 precision
+        assert!((ln.as_slice()[0] - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_prod_dim() {
+        // [[1, 2, 3],
+        //  [4, 5, 6]]
+        let a = Tensor::from_vec(vec![2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+
+        let prod_0 = a.prod_dim(0).unwrap(); // Columns
+        assert_eq!(prod_0.shape(), &[3]);
+        assert_eq!(prod_0.as_slice(), &[4.0, 10.0, 18.0]);
+
+        let prod_1 = a.prod_dim(1).unwrap(); // Rows
+        assert_eq!(prod_1.shape(), &[2]);
+        assert_eq!(prod_1.as_slice(), &[6.0, 120.0]); // 1*2*3, 4*5*6
+    }
+
+    #[test]
+    fn test_argmin_argmax_dim() {
+        // [[10, 50, 30],
+        //  [60, 20, 40]]
+        let a = Tensor::from_vec(vec![2, 3], vec![10.0, 50.0, 30.0, 60.0, 20.0, 40.0]).unwrap();
+
+        // Across rows (axis 1):
+        // Row 0 min is 10 (idx 0), max is 50 (idx 1)
+        // Row 1 min is 20 (idx 1), max is 60 (idx 0)
+        let argmin_1 = a.argmin_dim(1).unwrap();
+        assert_eq!(argmin_1.shape(), &[2]);
+        assert_eq!(argmin_1.as_slice(), &[0, 1]);
+
+        let argmax_1 = a.argmax_dim(1).unwrap();
+        assert_eq!(argmax_1.shape(), &[2]);
+        assert_eq!(argmax_1.as_slice(), &[1, 0]);
+
+        // Across cols (axis 0):
+        // Col 0: 10 vs 60 -> min idx 0, max idx 1
+        // Col 1: 50 vs 20 -> min idx 1, max idx 0
+        // Col 2: 30 vs 40 -> min idx 0, max idx 1
+        let argmin_0 = a.argmin_dim(0).unwrap();
+        assert_eq!(argmin_0.as_slice(), &[0, 1, 0]);
+
+        let argmax_0 = a.argmax_dim(0).unwrap();
+        assert_eq!(argmax_0.as_slice(), &[1, 0, 1]);
+    }
+}
+
+#[cfg(test)]
+mod ml_primitives_tests {
+    use super::*;
+
+    #[test]
+    fn test_softmax_integration() {
+        // Explicitly declare Tensor::<f32>
+        let a = Tensor::<f32>::from_vec(
+            vec![2, 3],
+            vec![
+                1.0, 2.0, 3.0,
+                1.0, 1.0, 1.0
+            ]
+        ).unwrap();
+
+        let sm = a.softmax(1).unwrap();
+        assert_eq!(sm.shape(), &[2, 3]);
+
+        let row_sums = sm.sum_dim(1).unwrap();
+        assert_eq!(row_sums.shape(), &[2]);
+
+        // Add _f32 to the literals so Rust knows exactly what type to call .abs() on
+        assert!((row_sums.as_slice()[0] - 1.0_f32).abs() < 1e-6);
+        assert!((row_sums.as_slice()[1] - 1.0_f32).abs() < 1e-6);
+
+        assert!((sm.get(&[1, 0]).unwrap() - 0.333333_f32).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_relu_and_leaky_relu() {
+        let a = Tensor::from_vec(vec![3], vec![-5.0, 0.0, 5.0]).unwrap();
+
+        let r = a.relu();
+        assert_eq!(r.as_slice(), &[0.0, 0.0, 5.0]);
+
+        let lr = a.leaky_relu(0.1);
+        assert_eq!(lr.as_slice(), &[-0.5, 0.0, 5.0]);
     }
 }

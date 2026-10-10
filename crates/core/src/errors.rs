@@ -17,4 +17,8 @@ pub enum TensorError {
     IndexOutOfBounds { dims: usize, index: Vec<usize> },
     ReshapeMismatch { old_len: usize, new_len: usize },
     ShapeMismatch { left: Vec<usize>, right: Vec<usize> },
+    InvalidAxis { axis: usize, ndim: usize },
+    CannotSqueezeDimension { axis: usize, size: usize },
+    MatmulDimensionMismatch { left_shape: Vec<usize>, right_shape: Vec<usize> },
+    NonContiguousReshape,
 }
